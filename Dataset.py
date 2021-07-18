@@ -43,7 +43,9 @@ def load_dataset(dir_root, dir_images, dir_masks, training_size=0.8):
 class PanNuke(Dataset):
     def __init__(self, dir_root, dir_images, dir_masks, val=False, train=False, test=False):
         self.images = np.load(dir_root+dir_images, mmap_mode='r')
+        self.images = np.moveaxis(self.images, -1, 1)
         self.masks = np.load(dir_root+dir_masks, mmap_mode='r')
+        self.masks = np.moveaxis(self.masks, -1, 1)
 
     def __len__(self):
         return self.images.shape[0]
