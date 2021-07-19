@@ -48,6 +48,33 @@ class BinaryDiceLoss(nn.Module):
         else:
             raise Exception('Unexpected reduction {}'.format(self.reduction))
 
+def eval_loss_epoch(training_loader, model, loss_function):
+
+    losses = []
+    model.eval()
+    with tqdm.tqdm(total=len(training_loader), file=sys.stdout) as pbar:
+        for idx_batch, (images, masks) in enumerate(training_loader, start=1):
+
+            images = images.to(device)
+            masks = masks.to(device)
+
+            # calculate output
+            y_hat = model(images)
+
+            # calculate loss now:
+
+            loss = loss_function(y_hat, masks)
+
+            # optimizing weights
+
+            # update loss bar
+            losses.append(loss.detach())
+            pbar.update();
+            pbar.set_description(f'val loss={losses[-1]:.3f}')
+        mean_loss = torch.mean(torch.FloatTensor(losses))
+        pbar.set_description(f'val loss={mean_loss:.3f}')
+
+    return [mean_loss]
 
 def train_epoch(training_loader, model, optimizer, loss_function):
 
