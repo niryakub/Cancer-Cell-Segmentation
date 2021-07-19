@@ -7,16 +7,16 @@ import torch
 from torch.utils.data import DataLoader, SubsetRandomSampler
 
 # VISUALIZING SAMPLES
-def vis_sample(image,masks):
+def vis_sample(image, masks):
     fig, axs = plt.subplots(1,7)
     fig.tight_layout()
-    axs[0].imshow(image.astype(np.uint8)); axs[0].set_title("Sample")
-    axs[1].imshow(masks[:,:,0].astype(np.uint8), cmap="gray"); axs[1].set_title("Neoplastic cells")
-    axs[2].imshow(masks[:,:,1].astype(np.uint8), cmap="gray"); axs[2].set_title("Inflammatory")
-    axs[3].imshow(masks[:,:,2].astype(np.uint8), cmap="gray"); axs[3].set_title("Connective/Soft tissue cells")
-    axs[4].imshow(masks[:,:,3].astype(np.uint8), cmap="gray"); axs[4].set_title("Dead Cells")
-    axs[5].imshow(masks[:,:,4].astype(np.uint8), cmap="gray"); axs[5].set_title("Epithelial")
-    axs[6].imshow(masks[:,:,5].astype(np.uint8), cmap="gray"); axs[6].set_title("Background")
+    axs[0].imshow((np.moveaxis(image.astype(np.uint8),0,-1))); axs[0].set_title("Sample")
+    axs[1].imshow(np.moveaxis(masks[:,:,0].astype(np.uint8),0,-1), cmap="gray"); axs[1].set_title("Neoplastic cells")
+    axs[2].imshow(np.moveaxis(masks[:,:,1].astype(np.uint8),0,-1), cmap="gray"); axs[2].set_title("Inflammatory")
+    axs[3].imshow(np.moveaxis(masks[:,:,2].astype(np.uint8),0,-1), cmap="gray"); axs[3].set_title("Connective/Soft tissue cells")
+    axs[4].imshow(np.moveaxis(masks[:,:,3].astype(np.uint8),0,-1), cmap="gray"); axs[4].set_title("Dead Cells")
+    axs[5].imshow(np.moveaxis(masks[:,:,4].astype(np.uint8),0,-1), cmap="gray"); axs[5].set_title("Epithelial")
+    axs[6].imshow(np.moveaxis(masks[:,:,5].astype(np.uint8),0,-1), cmap="gray"); axs[6].set_title("Background")
     plt.show()
 
 
