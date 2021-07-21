@@ -9,6 +9,19 @@ if torch.cuda.is_available():
     device = torch.device('cuda')
 print(device)
 
+
+def dice_loss(predict, target):
+    smooth = 1.
+    loss = 0.
+    for c in range(predict.shape[1]):
+        iflat = predict[:, c, ...].contiguous().view(-1)
+        tflat = target[:, c, ...].contiguous().view(-1)
+        intersection = (iflat * tflat).sum()
+
+        loss +=  (1 - ((2. * intersection + smooth) /
+                          (iflat.sum() + tflat.sum() + smooth)))
+    return loss
+
 class BinaryDiceLoss(nn.Module):
     """Dice loss of binary class
     Args:
@@ -30,23 +43,36 @@ class BinaryDiceLoss(nn.Module):
         self.reduction = reduction
 
     def forward(self, predict, target):
+        loss_func = nn.BCELoss()
         assert predict.shape[0] == target.shape[0], "predict & target batch size don't match"
-        predict = predict.contiguous().view(predict.shape[0], -1)
-        target = target.contiguous().view(target.shape[0], -1)
+        loss = 0
+        for b_idx in range(predict.shape[0]):
+            for row in range(predict.shape[2]):
+                for col in range(predict.shape[3]):
+                    predict_i = predict[b_idx,:,row,col].contiguous().view(-1)
+                    target_i = target[b_idx,:,row,col].contiguous().view(-1)
+                    loss += loss_func(predict_i, target_i)
+                    # num = torch.sum(torch.mul(predict_i, target_i), dim=0) + self.smooth
+                    # den = torch.sum(predict_i.pow(self.p) + target_i.pow(self.p), dim=0) + self.smooth
+                    #
+                    # loss = loss +  1 - num / den
 
-        num = torch.sum(torch.mul(predict, target), dim=1) + self.smooth
-        den = torch.sum(predict.pow(self.p) + target.pow(self.p), dim=1) + self.smooth
-
-        loss = 1 - num / den
-
-        if self.reduction == 'mean':
-            return loss.mean()
-        elif self.reduction == 'sum':
-            return loss.sum()
-        elif self.reduction == 'none':
-            return loss
-        else:
-            raise Exception('Unexpected reduction {}'.format(self.reduction))
+        # predict = predict.contiguous().view(predict.shape[0], -1)
+        # target = target.contiguous().view(target.shape[0], -1)
+        #
+        # num = torch.sum(torch.mul(predict, target), dim=1) + self.smooth
+        # den = torch.sum(predict.pow(self.p) + target.pow(self.p), dim=1) + self.smooth
+        #
+        # loss = 1 - num / den
+        return loss
+        # if self.reduction == 'mean':
+        #     return loss.mean()
+        # elif self.reduction == 'sum':
+        #     return loss.sum()
+        # elif self.reduction == 'none':
+        #     return loss
+        # else:
+        #     raise Exception('Unexpected reduction {}'.format(self.reduction))
 
 def eval_loss_epoch(training_loader, model, loss_function):
 
@@ -105,40 +131,3 @@ def train_epoch(training_loader, model, optimizer, loss_function):
         pbar.set_description(f'train loss={mean_loss:.3f}')
 
     return [mean_loss]
-#
-# def train_model(model, training_loader, optimizer, loss_function, max_batches=None):
-#     losses = []
-#     with tqdm.tqdm(total=(max_batches if max_batches else len(training_loader)), file=sys.stdout) as pbar:
-#         for idx_batch, batch in enumerate(training_loader, start=1):
-#             x, x_len = batch.d
-#
-#             model.train()
-#
-#             y_hat = model(x)
-#             y_gt = x[1:, :]  # drop <sos> in every sequence..
-#             y_hat = y_hat[:(y_hat.shape[0] - 1), :, :]  # grab only y1..yk-1 from every output sequence
-#             S, B, V = y_hat.shape
-#
-#             # CUT VERSION:
-#             y_gt = y_gt.reshape(S * B)
-#             y_hat = y_hat.reshape(S * B, V)
-#
-#
-#             # calculate loss now:
-#             optimizer.zero_grad()
-#             loss = loss_function(y_hat, y_gt)
-#             loss.backward()
-#
-#             # optimizing weights
-#             optimizer.step()
-#
-#             losses.append(loss.detach())
-#             pbar.update();
-#             pbar.set_description(f'train loss={losses[-1]:.3f}')
-#             if max_batches and idx_batch >= max_batches:
-#                 break
-#         epoch_list.append(i)
-#         mean_loss = torch.mean(torch.FloatTensor(losses))
-#         pbar.set_description(f'train loss={mean_loss:.3f}')
-#
-#     return [mean_loss]
