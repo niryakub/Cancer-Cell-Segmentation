@@ -1,10 +1,13 @@
-from Dataset import load_dataset
+from Dataset import load_dataset, vis_sample, vis_predictions
 from Model import UNet
 from torchsummary import summary
 import torch
+import matplotlib.pyplot as plt
+import numpy as np
 import torch.nn as nn
 
-from Train import train_epoch, BinaryDiceLoss, eval_loss_epoch
+
+from Train import train_epoch, BinaryDiceLoss, eval_loss_epoch, dice_loss
 
 device = torch.device('cpu')
 if torch.cuda.is_available():
@@ -27,14 +30,16 @@ masks_dir = 'Masks 2\\masks.npy'
 validation_loader, test_loader = load_dataset(dir_root=root, dir_masks=masks_dir, dir_images=images_dir, training_size=0.5)
 
 
-
 # creating model
 model = UNet()
 summary(model, (3,256,256))
 model.double()
+
+
+
 # training
 epochs = 5
-loss_function = BinaryDiceLoss()
+loss_function = dice_loss
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9,0.999), eps =1e-08)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 10, gamma=0.5)
 
@@ -47,10 +52,6 @@ for i in range (1,epochs):
  eval_loss_epoch(training_loader=validation_loader, model=model, loss_function=loss_function)
  scheduler.step()
 
-# # VISUALIZING SAMPLES
-# rand_idx = random.randint(0,pannuke.images.shape[0])
-# image = pannuke.images[rand_idx,...]
-# masks = pannuke.masks[rand_idx,...]
-# vis_sample(image,masks)
+
 
 print("END")
