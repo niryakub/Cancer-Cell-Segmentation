@@ -10,8 +10,8 @@ The dataset contains nuclei instance segmentation and classification images with
 ## Architectures
 We use UNet architecture and MicroNet architecture, related files in model.py.  [official MicroNet paper](https://arxiv-org.ezproxy.haifa.ac.il/abs/1804.08145)
 
-## Colab Notebooks
-.ipynb colab notebooks are available, in which you can find the entire process from creating the datasets, the model, the training process and the evaluation process.
+## jupyter notebook
+.ipynb google colab notebooks are available, in which you can find the entire process from creating the datasets, the model, the training process, the evaluation process, and vizualization.
 
 ## Predictions
 ### Masks Predictions
