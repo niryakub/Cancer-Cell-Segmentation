@@ -6,6 +6,7 @@ import torch
 import numpy as np
 
 from DataUtilities import vis_sample
+from Metrics import calc_eval_metrics
 
 device = torch.device('cpu')
 if torch.cuda.is_available():
@@ -75,6 +76,34 @@ def train_epoch(training_loader, model, optimizer, loss_function):
         pbar.set_description(f'train loss={mean_loss:.3f}')
 
     return [mean_loss]
+
+def eval_model(model,data_loader):
+    DICE = []
+    IOU = []
+    model.eval()
+    with tqdm.tqdm(total=len(data_loader), file=sys.stdout) as pbar:
+        for (images, masks) in data_loader:
+            images = images.to(device)
+            masks = masks.to(device)
+
+            # calculate output
+            y_hat = model(images)
+            y_hat = y_hat.to(device)
+
+            # generate one hot vectors
+            one_hot_masks = torch.nn.functional.one_hot(torch.argmax(y_hat, dim=1))
+            one_hot_masks = one_hot_masks.permute(0, 3, 1, 2)
+            one_hot_masks = one_hot_masks.to(device)
+
+            dice_score, iou_score = calc_eval_metrics(outputs=one_hot_masks, labels=masks)
+            DICE.append(dice_score)
+            IOU.append(iou_score)
+
+            pbar.update();
+            pbar.set_description(f'IOU ={IOU[-1]:.3f} ; DICE ={DICE[-1]:.3f}')
+        mean_dice = torch.mean(torch.FloatTensor(DICE))
+        mean_iou = torch.mean(torch.FloatTensor(IOU))
+        pbar.set_description(f'IOU ={mean_iou:.3f} ; DICE ={mean_dice:.3f}')
 
 def train_on_1_batch(model, optimizer, loss_function, images, masks,vis=False):
     losses = []
