@@ -40,8 +40,12 @@ class PanNukeDataset(Dataset):
 
         return torch.from_numpy(image),torch.from_numpy(mask)
 
-# Creating dataloaders
-def load_dataset(batch_size, shuffle_flag, num_workers, data_dir, transforms=None):
+# Creating data loaders:
+def load_dataset(batch_size, shuffle_flag, num_workers=None, data_dir=None, transforms=None):
   dataset = PanNukeDataset(data_dir)
-  data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle_flag, num_workers=num_workers)
+  if num_workers is not None :
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle_flag, num_workers=num_workers)
+  else :
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle_flag)
+
   return data_loader
