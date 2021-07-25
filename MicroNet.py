@@ -1,15 +1,19 @@
 import sys
+import pathlib
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as TNF
 import torch.nn.modules
 from torch import optim
-import time
-import dataset as pnk
 from torch.utils.data import DataLoader
 from torchsummary import summary
 import tqdm
+
+# Custom imports
+import Dataset
+import DataUtilities
+import TrainingUtilities
 
 # Small useful components:
 # this class is to be able to use TNF.interpole within nn.Sequential()
@@ -297,16 +301,22 @@ def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
     torch.save(state, filename)
 
-def load_checkpoint(checkpoint, model):
+def load_checkpoint(load_model_path, model):
     print("=> Loading checkpoint")
-    model.load_state_dict(checkpoint["state_dict"])
+    if torch.cuda.is_available():
+        checkpoint = torch.load(load_model_path)
+        model.load_state_dict(checkpoint["state_dict"])
+    else:
+        checkpoint = torch.load(TRAINED_MODEL_PATH + "my_checkpoint.pth.tar", map_location='cpu')
+        model.load_state_dict(checkpoint["state_dict"])
 
-def load_dataset(batch_size, shuffle_flag, num_workers, data_dir, transforms=None):
-    dataset = pnk.PanNukeDataset(data_dir)
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle_flag)#, num_workers=num_workers)
-    return data_loader
 
-def train(model, loader, opt, criterion,scheduler, epoch):
+# def load_dataset(batch_size, shuffle_flag, num_workers, data_dir, transforms=None):
+#     dataset = pnk.PanNukeDataset(data_dir)
+#     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle_flag)#, num_workers=num_workers)
+#     return data_loader
+
+def train(model, loader, opt, loss_func, scheduler, epoch):
     epoch_loss = 0
     epoch_acc = 0
 
@@ -323,12 +333,19 @@ def train(model, loader, opt, criterion,scheduler, epoch):
 
             # Calculation of loss (according to paper):
             p0, pa1, pa2, pa3 = model(images) # Pi.shape, 256x256x5
-            masks = torch.argmax(masks, dim=1)
-            #loss = criterion(output, masks)
-            l0 = criterion(p0, masks)
-            l1 = criterion(pa1, masks)
-            l2 = criterion(pa2, masks)
-            l3 = criterion(pa3, masks)
+            masks = torch.argmax(masks, dim=1) # B,CH=1,H,W
+            #if loss_type == "ce" : # Perform CrossEntropy loss
+                # l0 = loss_func(p0, masks)
+                # l1 = loss_func(pa1, masks)
+                # l2 = loss_func(pa2, masks)
+                # l3 = loss_func(pa3, masks)
+
+            #if loss_type == "dice" : # Perform Dice loss
+            l0 = loss_func(p0, masks)
+            l1 = loss_func(pa1, masks)
+            l2 = loss_func(pa2, masks)
+            l3 = loss_func(pa3, masks)
+
             loss = l0+(l1+l2+l3)/epoch
             # Backpropagation
             loss.backward()
@@ -351,16 +368,32 @@ def train(model, loader, opt, criterion,scheduler, epoch):
     return epoch_loss / len(loader), epoch_acc / len(loader)
 
 
+
+
+
+
+
 # ================= MAIN =====================
 # Variables:
-BATCH_SIZE = 4
-NUM_WORKERS = 4
+BATCH_SIZE = 5
+NUM_WORKERS = None
 EPOCHS = 50
 LEARNING_RATE=0.001
+TRAIN = True
+DATA_PATH = 'C:/Users/nirya/PycharmProjects/PanNuke/Final_Dataset/'
+TRAINED_MODEL_PATH = 'C:/Users/nirya/PycharmProjects/Cell Segmentation/'
+LOSS_FUNC = TrainingUtilities.dice_loss
+MODEL_TO_SAVE_NAME = 'my_checkpoint_dice.pth.tar'
 
-train_dir = './/Final_Dataset/train_pickled_data'
-val_dir = './/Final_Dataset/val_pickled_data'
-test_dir = './/Final_Dataset/test_pickled_data'
+# On Local:
+train_dir = DATA_PATH +'train_pickled_data'
+val_dir = DATA_PATH + 'val_pickled_data'
+test_dir = DATA_PATH + 'test_pickled_data'
+
+# On Colab:
+# train_dir = 'Dataset/train_pickled_data'
+# val_dir = 'Dataset/val_pickled_data'
+# test_dir = 'Dataset/test_pickled_data'
 
 # Set up device:
 device = torch.device('cpu')
@@ -368,27 +401,38 @@ if torch.cuda.is_available():
     device = torch.device('cuda')
 print(device)
 
-# Grab loaders:
-train_loader = load_dataset(BATCH_SIZE, shuffle_flag=True, num_workers=NUM_WORKERS, data_dir=train_dir)
-val_loader = load_dataset(BATCH_SIZE, shuffle_flag=True, num_workers=NUM_WORKERS, data_dir=val_dir)
-test_loader = load_dataset(BATCH_SIZE, shuffle_flag=True, num_workers=NUM_WORKERS, data_dir=test_dir)
+# Grab loaders (ON CUDA):
+train_loader = Dataset.load_dataset(BATCH_SIZE, shuffle_flag=True, num_workers=NUM_WORKERS, data_dir=train_dir)
+val_loader = Dataset.load_dataset(BATCH_SIZE, shuffle_flag=True, num_workers=NUM_WORKERS, data_dir=val_dir)
+test_loader = Dataset.load_dataset(BATCH_SIZE, shuffle_flag=True, num_workers=NUM_WORKERS, data_dir=test_dir)
 
 model = MicroNet().to(device)
 summary(model, (3, 256, 256))
 
-# Define optimizer and criterion functions   - IMPROVE... LEARN HP'S
+# Define optimizer and loss functions
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-08)
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5, last_epoch=-1, verbose=False)
 loss_func = nn.CrossEntropyLoss()
 
-for epoch in range(EPOCHS):
-    print("Epoch-%d: " % (epoch))
 
-    train_loss, train_acc = train(model, train_loader, optimizer, loss_func, scheduler, epoch+1)
+if TRAIN :
+    for epoch in range(EPOCHS):
+        print("Epoch-%d: " % (epoch))
+        train_loss, train_acc = train(model, train_loader, optimizer, LOSS_FUNC, scheduler, epoch+1, )
+        print(f"train loss={train_loss}, epoch={epoch}")
+
+        # Save model
+        checkpoint = {
+            "state_dict": model.state_dict(),
+            "optimizer": optimizer.state_dict()
+        }
+        save_checkpoint(checkpoint, MODEL_TO_SAVE_NAME)
+
+        # val_loss, val_acc = evaluate(model, val_loader, loss_func)
+        # print(f"train loss={train_loss}, epoch={epoch}")
+else :
+    load_checkpoint(TRAINED_MODEL_PATH+"my.checkpoint.pth.tar", model)
+    DataUtilities.visualize_segmented_ground_truth(test_loader, model, "micronet")
+    DataUtilities.vis_predictions(test_loader, model, "micronet")
 
 
-    print(f"train loss={train_loss}, epoch={epoch}")
-
-    # val_loss, val_acc = evaluate(model, val_loader, loss_func)
-
-    # print(f"train loss={train_loss}, epoch={epoch}")
