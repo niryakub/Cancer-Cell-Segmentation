@@ -1,4 +1,4 @@
-# Cancer Instance Segmentation and Classification
+# Cancer Cells Instance Segmentation and Classification
 Detecting &amp; Segmenting cancer cells in histology images from PanNuke dataset. Using Computer Vision + Deep Learning neural networks architectures.
 This Project implements the kaggle challenge: [Cancer Instance Segmentation and Classification](https://www.kaggle.com/andrewmvd/cancer-inst-segmentation-and-classification). 
 The goal is to segment and classify each cell in the histology images.
